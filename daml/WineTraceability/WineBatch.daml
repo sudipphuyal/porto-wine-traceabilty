@@ -57,7 +57,8 @@ template WineBatch
     status : BatchStatus
     bottleQR : Text
   where
-    signatory currentOwner, ivdp
+    signatory currentOwner
+    observer producer, winery, ivdp
     ensure validBatchId batchId && validGrapeVariety grapeVariety
 
     choice TransferCustody : ContractId WineBatch

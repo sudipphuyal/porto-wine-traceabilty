@@ -91,7 +91,7 @@ validBatchId batchId =
   && digitAt batchId 11
 
 validGrapeVariety : Text -> Bool
-validGrapeVariety grapeVariety = T.strip grapeVariety /= ""
+validGrapeVariety grapeVariety = grapeVariety /= ""
 
 assertValidBatchId : Text -> Update ()
 assertValidBatchId batchId =

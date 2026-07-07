@@ -1,12 +1,12 @@
 # Evidência de testes
 
-Não foram capturadas evidências runtime neste ambiente porque `daml`, `dpm` e `canton` não estavam disponíveis no `PATH`.
+O ambiente local usa `dpm` com Daml SDK `3.5.2`.
 
-Quando o ambiente estiver instalado:
+Para capturar evidência:
 
 ```bash
-daml --version
-canton --help
+dpm --version
+dpm version --active
 ./scripts/run-tests.sh
 ./scripts/capture-evidence.sh
 ```

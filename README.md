@@ -6,22 +6,12 @@ The project models private custody, production, IVDP certification, recall, logi
 
 ## Prerequisites
 
-- DAML SDK with `daml` CLI.
-- Compatible Canton distribution with `canton` CLI.
-- Java supported by the selected Canton/DAML versions.
+- Java available on `PATH`.
+- Digital Asset Package Manager (`dpm`) with Daml SDK `3.5.2`.
 - POSIX shell.
+- Optional standalone Canton distribution if adapting `canton/canton.conf`.
 
-Detect versions:
-
-```bash
-dpm --version || true
-daml --version
-canton --help
-java -version
-node --version
-```
-
-In this environment, `daml`, `dpm`, and `canton` were missing. See `SETUP_REQUIRED.md`.
+For reproducible install and demo commands, see `RUNBOOK.md`.
 
 ## Build and test
 
@@ -32,10 +22,10 @@ In this environment, `daml`, `dpm`, and `canton` were missing. See `SETUP_REQUIR
 The script runs:
 
 ```bash
-daml build
-daml script --dar .daml/dist/porto-wine-traceability-0.1.0.dar --script-name WineTraceability.Test:endToEnd
-daml script --dar .daml/dist/porto-wine-traceability-0.1.0.dar --script-name WineTraceability.Test:recallScenario
-daml script --dar .daml/dist/porto-wine-traceability-0.1.0.dar --script-name WineTraceability.Test:negativeTests
+dpm build
+dpm script --ide-ledger --static-time --dar .daml/dist/porto-wine-traceability-0.1.0.dar --script-name WineTraceability.Test:endToEnd
+dpm script --ide-ledger --static-time --dar .daml/dist/porto-wine-traceability-0.1.0.dar --script-name WineTraceability.Test:recallScenario
+dpm script --ide-ledger --static-time --dar .daml/dist/porto-wine-traceability-0.1.0.dar --script-name WineTraceability.Test:negativeTests
 ```
 
 Expected successful output includes a completed DAR build and successful Daml Script execution for all three scripts.
@@ -48,7 +38,7 @@ Start the local development template with:
 ./scripts/run-canton-local.sh
 ```
 
-Because Canton was not installed here, validate `canton/canton.conf` against the examples shipped with your installed Canton version before using it as assessment evidence.
+The default helper starts `dpm sandbox`. For standalone Canton assessment evidence, validate `canton/canton.conf` against the examples shipped with your installed Canton version.
 
 ## E2E and evidence
 
@@ -80,11 +70,11 @@ evidence/                Place for real generated evidence
 
 ## Troubleshooting
 
-- `daml: command not found`: install the DAML SDK and ensure the CLI is on `PATH`.
-- `canton: command not found`: install Canton and validate the local config syntax for that release.
+- `dpm: command not found`: install DPM and ensure `$HOME/.dpm/bin` is on `PATH`.
+- `SDK_NOT_INSTALLED`: run `dpm install 3.5.2`.
 - Canton terminology mismatch: use the installed tool’s terminology in config, and explain “Canton Domain / Synchronizer” in the report.
 - Custody transfer stuck or rejected: check both controller authorizations and whether the Canton finality service is reachable.
 
 ## Academic transparency
 
-The repository includes source, tests, configuration templates and documentation. Runtime success must be demonstrated only after the required tools are installed. Current local blocker details are recorded in `SETUP_REQUIRED.md` and `STATUS.md`.
+The repository includes source, tests, configuration templates and documentation. Runtime success should be demonstrated from actual command output and captured evidence logs, not fabricated screenshots or identifiers.

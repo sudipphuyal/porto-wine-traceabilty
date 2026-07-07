@@ -8,8 +8,9 @@ out="evidence/run-${stamp}.log"
 {
   echo "timestamp_utc=${stamp}"
   echo "pwd=$(pwd)"
-  echo "daml_version=$(daml --version 2>&1 || true)"
-  echo "canton_help_first_lines=$(canton --help 2>&1 | head -20 || true)"
+  echo "dpm_version=$(dpm --version 2>&1 || true)"
+  echo "sdk_version=$(dpm version --active 2>&1 || true)"
+  echo "sandbox_help_first_lines=$(dpm sandbox --help 2>&1 | head -20 || true)"
   echo
   echo "Running tests:"
   ./scripts/run-tests.sh
