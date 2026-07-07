@@ -1,0 +1,126 @@
+module WineTraceability.Types where
+
+import DA.Optional
+import qualified DA.Text as T
+import Daml.Script
+
+data Origin = Origin with
+    quinta : Text
+    region : Text
+    gps : Text
+  deriving (Eq, Show)
+
+data EventType
+  = CustodyTransfer
+  | ProductionRecorded
+  | CertificationRequested
+  | CertificationIssued
+  | CertificationRejected
+  | BatchRecalled
+  deriving (Eq, Show)
+
+data Event = Event with
+    actor : Party
+    timestamp : Time
+    eventType : EventType
+    details : Text
+    publicSummary : Text
+    minTemperature : Optional Decimal
+    maxTemperature : Optional Decimal
+    offChainReference : Optional Text
+  deriving (Eq, Show)
+
+data BatchStatus
+  = Pending
+  | Certified
+  | Rejected
+  | Recalled
+  deriving (Eq, Show)
+
+data PublicEvent = PublicEvent with
+    actor : Party
+    timestamp : Time
+    eventType : EventType
+    publicSummary : Text
+  deriving (Eq, Show)
+
+data ProvenanceSummary = ProvenanceSummary with
+    bottleQR : Text
+    origin : Origin
+    harvestDate : Time
+    grapeVariety : Text
+    certificationStatus : BatchStatus
+    certificationHash : Optional Text
+    publicEvents : [PublicEvent]
+  deriving (Eq, Show)
+
+errBatchRecalled : Text
+errBatchRecalled = "ERR_BATCH_RECALLED: recalled batches cannot be transferred."
+
+errInvalidBatchId : Text
+errInvalidBatchId = "ERR_INVALID_BATCH_ID: batchId must match PW-YYYY-NNNN."
+
+errBlankGrape : Text
+errBlankGrape = "ERR_BLANK_GRAPE_VARIETY: grape variety must not be blank."
+
+errFutureHarvest : Text
+errFutureHarvest = "ERR_INVALID_HARVEST_DATE: harvest date must be before registration time."
+
+errWrongQr : Text
+errWrongQr = "ERR_WRONG_QR_CODE: QR code does not match this provenance record."
+
+isDigitText : Text -> Bool
+isDigitText t =
+  t == "0" || t == "1" || t == "2" || t == "3" || t == "4"
+  || t == "5" || t == "6" || t == "7" || t == "8" || t == "9"
+
+allDigits : Text -> Bool
+allDigits t = all isDigitText (T.explode t)
+
+validBatchId : Text -> Bool
+validBatchId batchId =
+  T.length batchId == 12
+  && T.take 3 batchId == "PW-"
+  && T.take 1 (T.drop 7 batchId) == "-"
+  && allDigits (T.take 4 (T.drop 3 batchId))
+  && allDigits (T.drop 8 batchId)
+
+validGrapeVariety : Text -> Bool
+validGrapeVariety grapeVariety = T.strip grapeVariety /= ""
+
+assertValidBatchId : Text -> Update ()
+assertValidBatchId batchId =
+  assertMsg errInvalidBatchId (validBatchId batchId)
+
+assertValidGrapeVariety : Text -> Update ()
+assertValidGrapeVariety grapeVariety =
+  assertMsg errBlankGrape (validGrapeVariety grapeVariety)
+
+publicEventFromPrivate : Event -> PublicEvent
+publicEventFromPrivate event =
+  PublicEvent with
+    actor = event.actor
+    timestamp = event.timestamp
+    eventType = event.eventType
+    publicSummary = redactPublicSummary event
+
+redactPublicSummary : Event -> Text
+redactPublicSummary event =
+  case event.eventType of
+    ProductionRecorded -> "Production completed"
+    CustodyTransfer -> "Custody transferred"
+    CertificationRequested -> "Certification requested"
+    CertificationIssued -> "DOP certification issued"
+    CertificationRejected -> "Certification rejected"
+    BatchRecalled -> "Batch recalled by regulator"
+
+redactEvents : [Event] -> [PublicEvent]
+redactEvents = map publicEventFromPrivate
+
+certificationRequested : [Event] -> Bool
+certificationRequested events =
+  any (\e -> e.eventType == CertificationRequested) events
+
+countEventsOfType : EventType -> [Event] -> Int
+countEventsOfType expected events =
+  length (filter (\e -> e.eventType == expected) events)

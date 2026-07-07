@@ -1,0 +1,207 @@
+module WineTraceability.WineBatch where
+
+import WineTraceability.Types
+import WineTraceability.PublicProvenance
+import Daml.Script
+
+template WineBatchFactory
+  with
+    producer : Party
+    winery : Party
+    ivdp : Party
+  where
+    signatory producer
+    observer winery, ivdp
+
+    choice RegisterWineBatch : ContractId WineBatch
+      with
+        batchId : Text
+        origin : Origin
+        harvestDate : Time
+        grapeVariety : Text
+        bottleQR : Text
+      controller producer
+      do
+        now <- getTime
+        assertValidBatchId batchId
+        assertValidGrapeVariety grapeVariety
+        assertMsg errFutureHarvest (harvestDate < now)
+        create WineBatch with
+          batchId
+          origin
+          harvestDate
+          grapeVariety
+          producer
+          winery
+          currentOwner = producer
+          ivdp
+          history = []
+          certificationHash = None
+          certificateReference = None
+          status = Pending
+          bottleQR
+
+template WineBatch
+  with
+    batchId : Text
+    origin : Origin
+    harvestDate : Time
+    grapeVariety : Text
+    producer : Party
+    winery : Party
+    currentOwner : Party
+    ivdp : Party
+    history : [Event]
+    certificationHash : Optional Text
+    certificateReference : Optional Text
+    status : BatchStatus
+    bottleQR : Text
+  where
+    signatory currentOwner, ivdp
+    ensure validBatchId batchId && validGrapeVariety grapeVariety
+
+    choice TransferCustody : ContractId WineBatch
+      with
+        newOwner : Party
+        logisticsNote : Text
+        minTemperature : Optional Decimal
+        maxTemperature : Optional Decimal
+        offChainReference : Optional Text
+      controller currentOwner, newOwner
+      do
+        assertMsg errBatchRecalled (status /= Recalled)
+        assertMsg "ERR_BATCH_REJECTED: rejected batches cannot be transferred." (status /= Rejected)
+        assertMsg "ERR_TRANSFER_NOT_ALLOWED: pending batches may only move from Quinta to Sandeman." (status == Certified || (status == Pending && currentOwner == producer && newOwner == winery))
+        now <- getTime
+        let event = Event with
+              actor = currentOwner
+              timestamp = now
+              eventType = CustodyTransfer
+              details = logisticsNote
+              publicSummary = "Custody transferred"
+              minTemperature
+              maxTemperature
+              offChainReference
+        create this with
+          currentOwner = newOwner
+          history = history ++ [event]
+
+    choice RecordProduction : ContractId WineBatch
+      with
+        productionNotes : Text
+      controller winery
+      do
+        assertMsg "ERR_NOT_CURRENT_WINERY: Sandeman must hold current custody to record production." (currentOwner == winery)
+        assertMsg "ERR_PRODUCTION_STATUS: production can only be recorded while pending." (status == Pending)
+        now <- getTime
+        let event = Event with
+              actor = winery
+              timestamp = now
+              eventType = ProductionRecorded
+              details = productionNotes
+              publicSummary = "Production completed"
+              minTemperature = None
+              maxTemperature = None
+              offChainReference = None
+        create this with history = history ++ [event]
+
+    choice RequestCertification : ContractId WineBatch
+      with
+        requestNote : Text
+      controller winery
+      do
+        assertMsg "ERR_NOT_CURRENT_WINERY: Sandeman must hold current custody to request certification." (currentOwner == winery)
+        assertMsg "ERR_CERTIFICATION_REQUEST_STATUS: certification can only be requested while pending." (status == Pending)
+        now <- getTime
+        let event = Event with
+              actor = winery
+              timestamp = now
+              eventType = CertificationRequested
+              details = requestNote
+              publicSummary = "Certification requested"
+              minTemperature = None
+              maxTemperature = None
+              offChainReference = None
+        create this with history = history ++ [event]
+
+    choice IssueCertification : ContractId WineBatch
+      with
+        issuedCertificationHash : Text
+        issuedCertificateReference : Text
+      controller ivdp
+      do
+        assertMsg "ERR_CERTIFICATION_STATUS: certification can only be issued while pending." (status == Pending)
+        assertMsg "ERR_CERTIFICATION_NOT_REQUESTED: certification must be requested before issuance." (certificationRequested history)
+        assertMsg "ERR_CERTIFICATION_ALREADY_SET: certification hash is immutable after issuance." (certificationHash == None)
+        now <- getTime
+        let event = Event with
+              actor = ivdp
+              timestamp = now
+              eventType = CertificationIssued
+              details = "DOP certification issued"
+              publicSummary = "DOP certification issued"
+              minTemperature = None
+              maxTemperature = None
+              offChainReference = Some issuedCertificateReference
+        create this with
+          status = Certified
+          certificationHash = Some issuedCertificationHash
+          certificateReference = Some issuedCertificateReference
+          history = history ++ [event]
+
+    choice RejectCertification : ContractId WineBatch
+      with
+        rejectionReason : Text
+      controller ivdp
+      do
+        assertMsg "ERR_REJECTION_STATUS: certification can only be rejected while pending." (status == Pending)
+        now <- getTime
+        let event = Event with
+              actor = ivdp
+              timestamp = now
+              eventType = CertificationRejected
+              details = rejectionReason
+              publicSummary = "Certification rejected"
+              minTemperature = None
+              maxTemperature = None
+              offChainReference = None
+        create this with
+          status = Rejected
+          history = history ++ [event]
+
+    choice RecallBatch : ContractId WineBatch
+      with
+        recallReason : Text
+      controller ivdp
+      do
+        assertMsg "ERR_RECALL_STATUS: only certified batches can be recalled." (status == Certified)
+        now <- getTime
+        let event = Event with
+              actor = ivdp
+              timestamp = now
+              eventType = BatchRecalled
+              details = recallReason
+              publicSummary = "Batch recalled by regulator"
+              minTemperature = None
+              maxTemperature = None
+              offChainReference = None
+        create this with
+          status = Recalled
+          history = history ++ [event]
+
+    choice PublishPublicProvenance : ContractId PublicProvenance
+      with
+        consumer : Party
+      controller currentOwner
+      do
+        assertMsg "ERR_PUBLICATION_STATUS: only certified or recalled batches can be published." (status == Certified || status == Recalled)
+        create PublicProvenance with
+          publisher = currentOwner
+          consumer
+          bottleQR
+          origin
+          harvestDate
+          grapeVariety
+          certificationStatus = status
+          certificationHash
+          publicEvents = redactEvents history

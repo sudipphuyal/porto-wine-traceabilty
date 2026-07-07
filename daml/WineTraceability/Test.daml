@@ -1,0 +1,254 @@
+module WineTraceability.Test where
+
+import WineTraceability.Types
+import WineTraceability.WineBatch
+import WineTraceability.PublicProvenance
+import Daml.Script
+
+portoOrigin : Origin
+portoOrigin = Origin with
+  quinta = "Quinta do Vale"
+  region = "Douro"
+  gps = "41.1579,-7.7864"
+
+harvest2026 : Time
+harvest2026 = time (date 2026 Jan 15) 10 0 0
+
+registerBatch
+  : Party
+  -> Party
+  -> Party
+  -> Text
+  -> Text
+  -> Text
+  -> Script (ContractId WineBatch)
+registerBatch producer winery ivdp batchId grapeVariety bottleQR = do
+  factory <- submit producer do
+    createCmd WineBatchFactory with producer; winery; ivdp
+  submit producer do
+    exerciseCmd factory RegisterWineBatch with
+      batchId
+      origin = portoOrigin
+      harvestDate = harvest2026
+      grapeVariety
+      bottleQR
+
+completeCertification
+  : Party
+  -> Party
+  -> Party
+  -> ContractId WineBatch
+  -> Script (ContractId WineBatch)
+completeCertification producer winery ivdp batchCid = do
+  cid1 <- submitMulti [producer, winery] [] do
+    exerciseCmd batchCid TransferCustody with
+      newOwner = winery
+      logisticsNote = "Entrega inicial Quinta->Sandeman"
+      minTemperature = None
+      maxTemperature = None
+      offChainReference = None
+  cid2 <- submit winery do
+    exerciseCmd cid1 RecordProduction with
+      productionNotes = "Fermentacao 18 dias, envelhecimento 18 meses"
+  cid3 <- submit winery do
+    exerciseCmd cid2 RequestCertification with
+      requestNote = "Pedido de certificacao DOP"
+  submit ivdp do
+    exerciseCmd cid3 IssueCertification with
+      issuedCertificationHash = "sha256:a3f8bc9d..."
+      issuedCertificateReference = "QmXyz123..."
+
+endToEnd : Script ()
+endToEnd = script do
+  quinta <- allocatePartyWithHint "Quinta do Vale" (PartyIdHint "QuintaDoVale")
+  sandeman <- allocatePartyWithHint "Sandeman Winery" (PartyIdHint "SandemanWinery")
+  ivdp <- allocatePartyWithHint "IVDP" (PartyIdHint "IVDP")
+  logis <- allocatePartyWithHint "LogisTrans" (PartyIdHint "LogisTrans")
+  vini <- allocatePartyWithHint "ViniShop Oslo" (PartyIdHint "ViniShopOslo")
+  consumer <- allocatePartyWithHint "Consumer Final" (PartyIdHint "ConsumerFinal")
+
+  batch0 <- registerBatch quinta sandeman ivdp "PW-2026-0042" "Touriga Nacional" "QR-NFC-88421"
+  batch1 <- submitMulti [quinta, sandeman] [] do
+    exerciseCmd batch0 TransferCustody with
+      newOwner = sandeman
+      logisticsNote = "Entrega inicial Quinta->Sandeman"
+      minTemperature = None
+      maxTemperature = None
+      offChainReference = None
+  state1 <- queryContractId sandeman batch1
+  assert (state1.currentOwner == sandeman)
+  assert (countEventsOfType CustodyTransfer state1.history == 1)
+
+  batch2 <- submit sandeman do
+    exerciseCmd batch1 RecordProduction with
+      productionNotes = "Fermentacao 18 dias, envelhecimento 18 meses"
+  state2 <- queryContractId sandeman batch2
+  assert (countEventsOfType ProductionRecorded state2.history == 1)
+
+  batch3 <- submit sandeman do
+    exerciseCmd batch2 RequestCertification with
+      requestNote = "Pedido de certificacao DOP"
+  state3 <- queryContractId sandeman batch3
+  assert (certificationRequested state3.history)
+
+  batch4 <- submit ivdp do
+    exerciseCmd batch3 IssueCertification with
+      issuedCertificationHash = "sha256:a3f8bc9d..."
+      issuedCertificateReference = "QmXyz123..."
+  certified <- queryContractId sandeman batch4
+  assert (certified.status == Certified)
+  assert (certified.batchId == "PW-2026-0042")
+  assert (certified.origin == portoOrigin)
+  assert (certified.harvestDate == harvest2026)
+  assert (certified.grapeVariety == "Touriga Nacional")
+  assert (certified.certificationHash == Some "sha256:a3f8bc9d...")
+
+  batch5 <- submitMulti [sandeman, logis] [] do
+    exerciseCmd batch4 TransferCustody with
+      newOwner = logis
+      logisticsNote = "Transporte 14-16C, Lisboa->Oslo"
+      minTemperature = Some 14.0
+      maxTemperature = Some 16.0
+      offChainReference = Some "fixtures/sample-temperature-logs.csv"
+  state5 <- queryContractId logis batch5
+  assert (countEventsOfType CustodyTransfer state5.history == 2)
+
+  batch6 <- submitMulti [logis, vini] [] do
+    exerciseCmd batch5 TransferCustody with
+      newOwner = vini
+      logisticsNote = "Entrega ao retalhista ViniShop Oslo"
+      minTemperature = None
+      maxTemperature = None
+      offChainReference = None
+  state6 <- queryContractId vini batch6
+  assert (state6.currentOwner == vini)
+  assert (countEventsOfType CustodyTransfer state6.history == 3)
+
+  publicCid <- submit vini do
+    exerciseCmd batch6 PublishPublicProvenance with consumer
+  summary <- submit consumer do
+    exerciseCmd publicCid VerifyProvenance with scannedQR = "QR-NFC-88421"
+  assert (summary.certificationStatus == Certified)
+  assert (summary.certificationHash == Some "sha256:a3f8bc9d...")
+  assert (length summary.publicEvents == length state6.history)
+  assert (all (\e -> e.publicSummary /= "Fermentacao 18 dias, envelhecimento 18 meses") summary.publicEvents)
+
+  privateForConsumer <- query @WineBatch consumer
+  assert (length privateForConsumer == 0)
+
+recallScenario : Script ()
+recallScenario = script do
+  quinta <- allocatePartyWithHint "Quinta do Vale" (PartyIdHint "RecallQuinta")
+  sandeman <- allocatePartyWithHint "Sandeman Winery" (PartyIdHint "RecallSandeman")
+  ivdp <- allocatePartyWithHint "IVDP" (PartyIdHint "RecallIVDP")
+  logis <- allocatePartyWithHint "LogisTrans" (PartyIdHint "RecallLogis")
+
+  batch0 <- registerBatch quinta sandeman ivdp "PW-2026-0099" "Touriga Nacional" "QR-NFC-99099"
+  certified <- completeCertification quinta sandeman ivdp batch0
+  recalled <- submit ivdp do
+    exerciseCmd certified RecallBatch with
+      recallReason = "Contaminacao detectada no lote PW-2026-0099"
+  recalledState <- queryContractId sandeman recalled
+  assert (recalledState.status == Recalled)
+  submitMustFailMulti [sandeman, logis] [] do
+    exerciseCmd recalled TransferCustody with
+      newOwner = logis
+      logisticsNote = "Nao deve transferir lote recolhido"
+      minTemperature = None
+      maxTemperature = None
+      offChainReference = None
+
+negativeTests : Script ()
+negativeTests = script do
+  quinta <- allocatePartyWithHint "Quinta do Vale" (PartyIdHint "NegativeQuinta")
+  sandeman <- allocatePartyWithHint "Sandeman Winery" (PartyIdHint "NegativeSandeman")
+  ivdp <- allocatePartyWithHint "IVDP" (PartyIdHint "NegativeIVDP")
+  logis <- allocatePartyWithHint "LogisTrans" (PartyIdHint "NegativeLogis")
+  vini <- allocatePartyWithHint "ViniShop Oslo" (PartyIdHint "NegativeVini")
+  consumer <- allocatePartyWithHint "Consumer Final" (PartyIdHint "NegativeConsumer")
+
+  factory <- submit quinta do
+    createCmd WineBatchFactory with producer = quinta; winery = sandeman; ivdp
+
+  submitMustFail quinta do
+    exerciseCmd factory RegisterWineBatch with
+      batchId = "BAD-2026-42"
+      origin = portoOrigin
+      harvestDate = harvest2026
+      grapeVariety = "Touriga Nacional"
+      bottleQR = "QR-BAD-ID"
+
+  submitMustFail quinta do
+    exerciseCmd factory RegisterWineBatch with
+      batchId = "PW-2026-0100"
+      origin = portoOrigin
+      harvestDate = harvest2026
+      grapeVariety = ""
+      bottleQR = "QR-BLANK"
+
+  submitMustFail quinta do
+    exerciseCmd factory RegisterWineBatch with
+      batchId = "PW-2026-0101"
+      origin = portoOrigin
+      harvestDate = time (date 2099 Jan 1) 0 0 0
+      grapeVariety = "Touriga Nacional"
+      bottleQR = "QR-FUTURE"
+
+  batch0 <- registerBatch quinta sandeman ivdp "PW-2026-0102" "Touriga Nacional" "QR-NFC-0102"
+  batch1 <- submitMulti [quinta, sandeman] [] do
+    exerciseCmd batch0 TransferCustody with
+      newOwner = sandeman
+      logisticsNote = "Entrega inicial"
+      minTemperature = None
+      maxTemperature = None
+      offChainReference = None
+  batch2 <- submit sandeman do
+    exerciseCmd batch1 RequestCertification with requestNote = "Pedido"
+
+  submitMustFail sandeman do
+    exerciseCmd batch2 IssueCertification with
+      issuedCertificationHash = "sha256:unauthorised"
+      issuedCertificateReference = "QmUnauthorised"
+
+  certified <- submit ivdp do
+    exerciseCmd batch2 IssueCertification with
+      issuedCertificationHash = "sha256:a3f8bc9d..."
+      issuedCertificateReference = "QmXyz123..."
+
+  submitMustFail sandeman do
+    exerciseCmd certified RecallBatch with recallReason = "Nao autorizado"
+
+  rejectedBatch <- registerBatch quinta sandeman ivdp "PW-2026-0103" "Touriga Nacional" "QR-NFC-0103"
+  rejected1 <- submitMulti [quinta, sandeman] [] do
+    exerciseCmd rejectedBatch TransferCustody with
+      newOwner = sandeman
+      logisticsNote = "Entrega inicial"
+      minTemperature = None
+      maxTemperature = None
+      offChainReference = None
+  rejected2 <- submit ivdp do
+    exerciseCmd rejected1 RejectCertification with rejectionReason = "Documentacao insuficiente"
+  submitMustFailMulti [sandeman, logis] [] do
+    exerciseCmd rejected2 TransferCustody with
+      newOwner = logis
+      logisticsNote = "Transferencia recusada"
+      minTemperature = None
+      maxTemperature = None
+      offChainReference = None
+
+  recalled <- submit ivdp do
+    exerciseCmd certified RecallBatch with recallReason = "Contaminacao detectada"
+  submitMustFailMulti [sandeman, logis] [] do
+    exerciseCmd recalled TransferCustody with
+      newOwner = logis
+      logisticsNote = "Transferencia apos recolha"
+      minTemperature = None
+      maxTemperature = None
+      offChainReference = None
+
+  wrongQrBatch <- registerBatch quinta sandeman ivdp "PW-2026-0104" "Touriga Nacional" "QR-NFC-0104"
+  wrongQrCertified <- completeCertification quinta sandeman ivdp wrongQrBatch
+  published <- submit sandeman do
+    exerciseCmd wrongQrCertified PublishPublicProvenance with consumer
+  submitMustFail consumer do
+    exerciseCmd published VerifyProvenance with scannedQR = "QR-ERRADO"

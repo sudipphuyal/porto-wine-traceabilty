@@ -1,0 +1,34 @@
+module WineTraceability.PublicProvenance where
+
+import WineTraceability.Types
+
+template PublicProvenance
+  with
+    publisher : Party
+    consumer : Party
+    bottleQR : Text
+    origin : Origin
+    harvestDate : Time
+    grapeVariety : Text
+    certificationStatus : BatchStatus
+    certificationHash : Optional Text
+    publicEvents : [PublicEvent]
+  where
+    signatory publisher
+    observer consumer
+    ensure certificationStatus == Certified || certificationStatus == Recalled
+
+    nonconsuming choice VerifyProvenance : ProvenanceSummary
+      with
+        scannedQR : Text
+      controller consumer
+      do
+        assertMsg errWrongQr (scannedQR == bottleQR)
+        pure ProvenanceSummary with
+          bottleQR
+          origin
+          harvestDate
+          grapeVariety
+          certificationStatus
+          certificationHash
+          publicEvents
