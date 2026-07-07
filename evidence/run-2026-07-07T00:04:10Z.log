@@ -1,0 +1,6 @@
+timestamp_utc=2026-07-07T00:04:10Z
+pwd=/Users/sudipphuyal/Developments/porto-wine-traceability
+daml_version=./scripts/capture-evidence.sh: line 11: daml: command not found
+canton_help_first_lines=./scripts/capture-evidence.sh: line 12: canton: command not found
+
+Running tests:
