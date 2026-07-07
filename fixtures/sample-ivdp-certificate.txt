@@ -1,0 +1,8 @@
+Fixture only - not an official IVDP document.
+
+Batch: PW-2026-0042
+Producer: Quinta do Vale
+Winery: Sandeman Winery
+Region: Douro
+Grape variety: Touriga Nacional
+Status: DOP certification issued for academic demonstration.
