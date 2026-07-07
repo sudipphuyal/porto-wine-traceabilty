@@ -71,6 +71,24 @@ ERROR: daml CLI not found on PATH. See SETUP_REQUIRED.md.
 ERROR: canton CLI not found on PATH. See SETUP_REQUIRED.md.
 ```
 
+`./scripts/run-e2e.sh` failed for the same DAML CLI blocker:
+
+```text
+ERROR: daml CLI not found on PATH. See SETUP_REQUIRED.md.
+```
+
+`./scripts/capture-evidence.sh` created `evidence/run-2026-07-07T00:04:10Z.log` containing a real missing-tool failure, not a successful Canton runtime trace:
+
+```text
+timestamp_utc=2026-07-07T00:04:10Z
+pwd=/Users/sudipphuyal/Developments/porto-wine-traceability
+daml_version=./scripts/capture-evidence.sh: line 11: daml: command not found
+canton_help_first_lines=./scripts/capture-evidence.sh: line 12: canton: command not found
+
+Running tests:
+ERROR: daml CLI not found on PATH. See SETUP_REQUIRED.md.
+```
+
 Runtime DAML/Canton checks could not pass because the required tools are unavailable on `PATH`.
 
 Planned checks once installed:
