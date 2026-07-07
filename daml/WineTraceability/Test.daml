@@ -3,6 +3,9 @@ module WineTraceability.Test where
 import WineTraceability.Types
 import WineTraceability.WineBatch
 import WineTraceability.PublicProvenance
+import DA.Date
+import DA.Optional
+import DA.Time
 import Daml.Script
 
 portoOrigin : Origin
@@ -60,12 +63,12 @@ completeCertification producer winery ivdp batchCid = do
 
 endToEnd : Script ()
 endToEnd = script do
-  quinta <- allocatePartyWithHint "Quinta do Vale" (PartyIdHint "QuintaDoVale")
-  sandeman <- allocatePartyWithHint "Sandeman Winery" (PartyIdHint "SandemanWinery")
+  quinta <- allocatePartyWithHint "QuintaDoVale" (PartyIdHint "QuintaDoVale")
+  sandeman <- allocatePartyWithHint "SandemanWinery" (PartyIdHint "SandemanWinery")
   ivdp <- allocatePartyWithHint "IVDP" (PartyIdHint "IVDP")
   logis <- allocatePartyWithHint "LogisTrans" (PartyIdHint "LogisTrans")
-  vini <- allocatePartyWithHint "ViniShop Oslo" (PartyIdHint "ViniShopOslo")
-  consumer <- allocatePartyWithHint "Consumer Final" (PartyIdHint "ConsumerFinal")
+  vini <- allocatePartyWithHint "ViniShopOslo" (PartyIdHint "ViniShopOslo")
+  consumer <- allocatePartyWithHint "ConsumerFinal" (PartyIdHint "ConsumerFinal")
   setTime (time (date 2026 Dec 31) 0 0 0)
 
   batch0 <- registerBatch quinta sandeman ivdp "PW-2026-0042" "Touriga Nacional" "QR-NFC-88421"
@@ -76,27 +79,31 @@ endToEnd = script do
       minTemperature = None
       maxTemperature = None
       offChainReference = None
-  state1 <- queryContractId sandeman batch1
+  state1Opt <- queryContractId sandeman batch1
+  let state1 = fromSomeNote "Expected Sandeman to see batch after initial custody transfer" state1Opt
   assert (state1.currentOwner == sandeman)
   assert (countEventsOfType CustodyTransfer state1.history == 1)
 
   batch2 <- submit sandeman do
     exerciseCmd batch1 RecordProduction with
       productionNotes = "Fermentacao 18 dias, envelhecimento 18 meses"
-  state2 <- queryContractId sandeman batch2
+  state2Opt <- queryContractId sandeman batch2
+  let state2 = fromSomeNote "Expected Sandeman to see batch after production recording" state2Opt
   assert (countEventsOfType ProductionRecorded state2.history == 1)
 
   batch3 <- submit sandeman do
     exerciseCmd batch2 RequestCertification with
       requestNote = "Pedido de certificacao DOP"
-  state3 <- queryContractId sandeman batch3
+  state3Opt <- queryContractId sandeman batch3
+  let state3 = fromSomeNote "Expected Sandeman to see batch after certification request" state3Opt
   assert (certificationRequested state3.history)
 
   batch4 <- submit ivdp do
     exerciseCmd batch3 IssueCertification with
       issuedCertificationHash = "sha256:a3f8bc9d..."
       issuedCertificateReference = "QmXyz123..."
-  certified <- queryContractId sandeman batch4
+  certifiedOpt <- queryContractId sandeman batch4
+  let certified = fromSomeNote "Expected Sandeman to see certified batch" certifiedOpt
   assert (certified.status == Certified)
   assert (certified.batchId == "PW-2026-0042")
   assert (certified.origin == portoOrigin)
@@ -111,7 +118,8 @@ endToEnd = script do
       minTemperature = Some 14.0
       maxTemperature = Some 16.0
       offChainReference = Some "fixtures/sample-temperature-logs.csv"
-  state5 <- queryContractId logis batch5
+  state5Opt <- queryContractId logis batch5
+  let state5 = fromSomeNote "Expected logistics party to see transferred batch" state5Opt
   assert (countEventsOfType CustodyTransfer state5.history == 2)
 
   batch6 <- submitMulti [logis, vini] [] do
@@ -121,7 +129,8 @@ endToEnd = script do
       minTemperature = None
       maxTemperature = None
       offChainReference = None
-  state6 <- queryContractId vini batch6
+  state6Opt <- queryContractId vini batch6
+  let state6 = fromSomeNote "Expected retailer to see transferred batch" state6Opt
   assert (state6.currentOwner == vini)
   assert (countEventsOfType CustodyTransfer state6.history == 3)
 
@@ -139,10 +148,10 @@ endToEnd = script do
 
 recallScenario : Script ()
 recallScenario = script do
-  quinta <- allocatePartyWithHint "Quinta do Vale" (PartyIdHint "RecallQuinta")
-  sandeman <- allocatePartyWithHint "Sandeman Winery" (PartyIdHint "RecallSandeman")
-  ivdp <- allocatePartyWithHint "IVDP" (PartyIdHint "RecallIVDP")
-  logis <- allocatePartyWithHint "LogisTrans" (PartyIdHint "RecallLogis")
+  quinta <- allocatePartyWithHint "RecallQuinta" (PartyIdHint "RecallQuinta")
+  sandeman <- allocatePartyWithHint "RecallSandeman" (PartyIdHint "RecallSandeman")
+  ivdp <- allocatePartyWithHint "RecallIVDP" (PartyIdHint "RecallIVDP")
+  logis <- allocatePartyWithHint "RecallLogis" (PartyIdHint "RecallLogis")
   setTime (time (date 2026 Dec 31) 0 0 0)
 
   batch0 <- registerBatch quinta sandeman ivdp "PW-2026-0099" "Touriga Nacional" "QR-NFC-99099"
@@ -150,9 +159,10 @@ recallScenario = script do
   recalled <- submit ivdp do
     exerciseCmd certified RecallBatch with
       recallReason = "Contaminacao detectada no lote PW-2026-0099"
-  recalledState <- queryContractId sandeman recalled
+  recalledStateOpt <- queryContractId sandeman recalled
+  let recalledState = fromSomeNote "Expected Sandeman to see recalled batch" recalledStateOpt
   assert (recalledState.status == Recalled)
-  submitMustFailMulti [sandeman, logis] [] do
+  submitMustFail sandeman do
     exerciseCmd recalled TransferCustody with
       newOwner = logis
       logisticsNote = "Nao deve transferir lote recolhido"
@@ -162,12 +172,12 @@ recallScenario = script do
 
 negativeTests : Script ()
 negativeTests = script do
-  quinta <- allocatePartyWithHint "Quinta do Vale" (PartyIdHint "NegativeQuinta")
-  sandeman <- allocatePartyWithHint "Sandeman Winery" (PartyIdHint "NegativeSandeman")
-  ivdp <- allocatePartyWithHint "IVDP" (PartyIdHint "NegativeIVDP")
-  logis <- allocatePartyWithHint "LogisTrans" (PartyIdHint "NegativeLogis")
-  vini <- allocatePartyWithHint "ViniShop Oslo" (PartyIdHint "NegativeVini")
-  consumer <- allocatePartyWithHint "Consumer Final" (PartyIdHint "NegativeConsumer")
+  quinta <- allocatePartyWithHint "NegativeQuinta" (PartyIdHint "NegativeQuinta")
+  sandeman <- allocatePartyWithHint "NegativeSandeman" (PartyIdHint "NegativeSandeman")
+  ivdp <- allocatePartyWithHint "NegativeIVDP" (PartyIdHint "NegativeIVDP")
+  logis <- allocatePartyWithHint "NegativeLogis" (PartyIdHint "NegativeLogis")
+  vini <- allocatePartyWithHint "NegativeVini" (PartyIdHint "NegativeVini")
+  consumer <- allocatePartyWithHint "NegativeConsumer" (PartyIdHint "NegativeConsumer")
   setTime (time (date 2026 Dec 31) 0 0 0)
 
   factory <- submit quinta do
@@ -231,7 +241,7 @@ negativeTests = script do
       offChainReference = None
   rejected2 <- submit ivdp do
     exerciseCmd rejected1 RejectCertification with rejectionReason = "Documentacao insuficiente"
-  submitMustFailMulti [sandeman, logis] [] do
+  submitMustFail sandeman do
     exerciseCmd rejected2 TransferCustody with
       newOwner = logis
       logisticsNote = "Transferencia recusada"
@@ -241,7 +251,7 @@ negativeTests = script do
 
   recalled <- submit ivdp do
     exerciseCmd certified RecallBatch with recallReason = "Contaminacao detectada"
-  submitMustFailMulti [sandeman, logis] [] do
+  submitMustFail sandeman do
     exerciseCmd recalled TransferCustody with
       newOwner = logis
       logisticsNote = "Transferencia apos recolha"

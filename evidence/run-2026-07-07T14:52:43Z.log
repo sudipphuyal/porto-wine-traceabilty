@@ -1,0 +1,34 @@
+timestamp_utc=2026-07-07T14:52:43Z
+pwd=/Users/sudipphuyal/Developments/porto-wine-traceability
+dpm_version=version: 1.0.21
+build: c4b92eb
+buildDate: c4b92eb
+sdk_version=3.5.2
+sandbox_help_first_lines=Canton v3.5.6
+Usage: canton [daemon|run|generate|sandbox|sandbox-interactive|sandbox-console] [options] <args>...
+
+  -h, --help               Print usage
+  --version                Print versions
+  -c, --config <file1>,<file2>,...
+                           Set configuration file(s).
+                                                      If several configuration files assign values to the same key,
+                                                      the last value is taken. For a 'sandbox' command, its default config
+                                                      is processed first, followed by files defined with '-c' and '--config'
+  -C, --config key-value's <key1>=<value1>,<key2>=<value2>
+                           Set configuration key value pairs directly.
+                                                      Can be useful for providing simple short config info.
+  --bootstrap <file>       Set a script to run on startup
+  --no-tty                 Do not use a tty
+  --manual-start           Don't automatically start the nodes
+  -D<property>=<value>     Set a JVM property value
+
+Logging Options:
+  -v, --verbose            Canton logger level -> DEBUG
+
+Running tests:
+WineTraceability.Test:endToEnd SUCCESS
+[INFO] [07/07/2026 15:52:50.621] [RunnerMain-pekko.actor.default-dispatcher-6] [CoordinatedShutdown(pekko://RunnerMain)] Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+WineTraceability.Test:recallScenario SUCCESS
+[INFO] [07/07/2026 15:52:53.200] [RunnerMain-pekko.actor.default-dispatcher-4] [CoordinatedShutdown(pekko://RunnerMain)] Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+WineTraceability.Test:negativeTests SUCCESS
+[INFO] [07/07/2026 15:52:55.869] [RunnerMain-pekko.actor.default-dispatcher-8] [CoordinatedShutdown(pekko://RunnerMain)] Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
