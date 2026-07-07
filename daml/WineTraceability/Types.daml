@@ -2,7 +2,6 @@ module WineTraceability.Types where
 
 import DA.Optional
 import qualified DA.Text as T
-import Daml.Script
 
 data Origin = Origin with
     quinta : Text
@@ -74,16 +73,22 @@ isDigitText t =
   t == "0" || t == "1" || t == "2" || t == "3" || t == "4"
   || t == "5" || t == "6" || t == "7" || t == "8" || t == "9"
 
-allDigits : Text -> Bool
-allDigits t = all isDigitText (T.explode t)
+digitAt : Text -> Int -> Bool
+digitAt value offset = isDigitText (T.take 1 (T.drop offset value))
 
 validBatchId : Text -> Bool
 validBatchId batchId =
   T.length batchId == 12
   && T.take 3 batchId == "PW-"
   && T.take 1 (T.drop 7 batchId) == "-"
-  && allDigits (T.take 4 (T.drop 3 batchId))
-  && allDigits (T.drop 8 batchId)
+  && digitAt batchId 3
+  && digitAt batchId 4
+  && digitAt batchId 5
+  && digitAt batchId 6
+  && digitAt batchId 8
+  && digitAt batchId 9
+  && digitAt batchId 10
+  && digitAt batchId 11
 
 validGrapeVariety : Text -> Bool
 validGrapeVariety grapeVariety = T.strip grapeVariety /= ""

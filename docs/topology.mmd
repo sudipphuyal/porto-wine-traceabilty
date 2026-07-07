@@ -1,0 +1,24 @@
+flowchart LR
+  subgraph Producers["Entidades da cadeia"]
+    Q["Quinta do Vale\nParty: produtor"]
+    S["Sandeman Winery\nParty: adega"]
+    I["IVDP\nParty: regulador"]
+    L["LogisTrans\nParty: logística"]
+    V["ViniShop Oslo\nParty: retalhista"]
+  end
+
+  C["Consumer Final\nQR verification"]
+  DS["Canton Domain / Synchronizer\nSequencer + Mediator"]
+
+  Q <--> DS
+  S <--> DS
+  I <--> DS
+  L <--> DS
+  V <--> DS
+
+  Q -- "TransferCustody privado" --> S
+  S -- "Request/IssueCertification" --> I
+  S -- "TransferCustody privado" --> L
+  L -- "TransferCustody privado" --> V
+  V -- "PublishPublicProvenance sanitizado" --> C
+  C -- "VerifyProvenance por QR" --> V

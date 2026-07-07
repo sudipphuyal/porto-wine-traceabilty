@@ -66,6 +66,7 @@ endToEnd = script do
   logis <- allocatePartyWithHint "LogisTrans" (PartyIdHint "LogisTrans")
   vini <- allocatePartyWithHint "ViniShop Oslo" (PartyIdHint "ViniShopOslo")
   consumer <- allocatePartyWithHint "Consumer Final" (PartyIdHint "ConsumerFinal")
+  setTime (time (date 2026 Dec 31) 0 0 0)
 
   batch0 <- registerBatch quinta sandeman ivdp "PW-2026-0042" "Touriga Nacional" "QR-NFC-88421"
   batch1 <- submitMulti [quinta, sandeman] [] do
@@ -142,6 +143,7 @@ recallScenario = script do
   sandeman <- allocatePartyWithHint "Sandeman Winery" (PartyIdHint "RecallSandeman")
   ivdp <- allocatePartyWithHint "IVDP" (PartyIdHint "RecallIVDP")
   logis <- allocatePartyWithHint "LogisTrans" (PartyIdHint "RecallLogis")
+  setTime (time (date 2026 Dec 31) 0 0 0)
 
   batch0 <- registerBatch quinta sandeman ivdp "PW-2026-0099" "Touriga Nacional" "QR-NFC-99099"
   certified <- completeCertification quinta sandeman ivdp batch0
@@ -166,6 +168,7 @@ negativeTests = script do
   logis <- allocatePartyWithHint "LogisTrans" (PartyIdHint "NegativeLogis")
   vini <- allocatePartyWithHint "ViniShop Oslo" (PartyIdHint "NegativeVini")
   consumer <- allocatePartyWithHint "Consumer Final" (PartyIdHint "NegativeConsumer")
+  setTime (time (date 2026 Dec 31) 0 0 0)
 
   factory <- submit quinta do
     createCmd WineBatchFactory with producer = quinta; winery = sandeman; ivdp

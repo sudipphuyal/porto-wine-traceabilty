@@ -1,0 +1,6 @@
+// Bootstrap template for Canton versions that still support .canton scripts.
+// Validate this against the installed Canton examples before using in evidence.
+
+localDomain.start()
+localParticipant.start()
+localParticipant.domains.connect_local(localDomain)

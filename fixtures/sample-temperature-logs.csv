@@ -1,0 +1,4 @@
+timestamp,stage,min_c,max_c,notes
+2026-03-01T09:00:00Z,lisbon_to_oslo,14.2,15.8,aggregated fixture reading
+2026-03-01T15:00:00Z,lisbon_to_oslo,14.0,16.0,aggregated fixture reading
+2026-03-02T08:00:00Z,delivery,14.5,15.5,aggregated fixture reading
