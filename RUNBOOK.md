@@ -6,6 +6,7 @@ This is a Daml/DPM project, not a Python project, so dependencies are recorded h
 
 - macOS or Linux shell.
 - Java available on `PATH`.
+- Node.js available on `PATH` for the browser demo UI.
 - Digital Asset Package Manager (`dpm`) and Daml SDK `3.5.2`.
 - Optional: standalone Canton distribution if you want to adapt `canton/canton.conf`. The self-contained local demo uses `dpm script --ide-ledger`.
 
@@ -113,6 +114,38 @@ What to say while demonstrating:
 - `endToEnd`: registers batch `PW-2026-0042`, transfers custody, records production, requests and issues IVDP certification, moves through logistics/retail, and lets a consumer verify public QR provenance.
 - `recallScenario`: proves IVDP can recall a certified batch and that recalled batches cannot continue custody transfer.
 - `negativeTests`: proves invalid IDs, blank grape variety, future harvest dates, unauthorized certification/recall, rejected/recalled transfers, and wrong QR scans are rejected.
+
+### Step 2A: browser demonstration
+
+Run:
+
+```bash
+./scripts/run-demo-ui.sh
+```
+
+Expected:
+
+```text
+Porto Wine Traceability demo running at http://localhost:4173
+```
+
+Open:
+
+```text
+http://localhost:4173
+```
+
+Use the UI in this order:
+
+1. Press `Advance scenario` through the lifecycle and show ownership moving from producer to winery, logistics and retailer.
+2. Show `Certification issued` and the hash appearing on the batch.
+3. Advance to `Public provenance` and show the consumer view excludes private production notes.
+4. Press `Recall batch` and show the status changing to `Recalled`.
+5. In `Real evidence runner`, press `Run certificate hash`.
+6. Press `Run Daml scenarios` and wait for `endToEnd SUCCESS`, `recallScenario SUCCESS`, and `negativeTests SUCCESS`.
+7. Press `Capture evidence`, then `Open latest log`.
+
+Keep the server terminal open while using the browser. Stop it with `Ctrl+C`.
 
 ### Step 3: show the certificate hash
 

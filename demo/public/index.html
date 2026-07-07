@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Porto Wine Traceability Demo</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="rail" aria-label="Actors">
+        <div class="brand-mark">
+          <div class="seal">IVDP</div>
+          <div>
+            <strong>Porto Trace</strong>
+            <span>Daml supply chain</span>
+          </div>
+        </div>
+        <nav class="actor-list" id="actorList"></nav>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Batch PW-2026-0042</p>
+            <h1>Porto wine custody and provenance</h1>
+          </div>
+          <div class="status-cluster">
+            <span class="status-pill" id="batchStatus">Pending</span>
+            <span class="status-pill quiet">SDK 3.5.2</span>
+          </div>
+        </header>
+
+        <section class="hero-band">
+          <div class="bottle-scene" aria-label="Porto bottle visualization">
+            <div class="bottle">
+              <div class="bottle-neck"></div>
+              <div class="bottle-body">
+                <div class="bottle-label">
+                  <span>Porto</span>
+                  <strong>PW-2026</strong>
+                </div>
+              </div>
+            </div>
+            <div class="qr-card">
+              <div class="qr-grid" aria-hidden="true"></div>
+              <span>QR-NFC-88421</span>
+            </div>
+          </div>
+
+          <div class="summary-grid">
+            <div class="metric">
+              <span>Origin</span>
+              <strong>Quinta do Vale, Douro</strong>
+            </div>
+            <div class="metric">
+              <span>Grape</span>
+              <strong>Touriga Nacional</strong>
+            </div>
+            <div class="metric">
+              <span>Certification hash</span>
+              <strong id="hashShort">Not issued</strong>
+            </div>
+            <div class="metric">
+              <span>Consumer view</span>
+              <strong id="consumerView">Not published</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="control-row" aria-label="Scenario controls">
+          <button class="command primary" id="nextStepBtn" type="button">
+            <span class="icon-play"></span>
+            Advance scenario
+          </button>
+          <button class="command" id="resetBtn" type="button">
+            <span class="icon-reset"></span>
+            Reset
+          </button>
+          <button class="command danger" id="recallBtn" type="button">
+            <span class="icon-stop"></span>
+            Recall batch
+          </button>
+        </section>
+
+        <section class="content-grid">
+          <div class="panel wide">
+            <div class="panel-header">
+              <h2>Lifecycle</h2>
+              <span id="stepCounter">0 / 8</span>
+            </div>
+            <div class="timeline" id="timeline"></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Current contract</h2>
+              <span id="contractOwner">Producer</span>
+            </div>
+            <dl class="state-list" id="contractState"></dl>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Consumer provenance</h2>
+              <span id="qrStatus">Locked</span>
+            </div>
+            <div class="consumer-card" id="consumerCard"></div>
+          </div>
+
+          <div class="panel wide">
+            <div class="panel-header">
+              <h2>Validation tests</h2>
+              <span>Smart-contract rejects</span>
+            </div>
+            <div class="test-grid" id="negativeTests"></div>
+          </div>
+
+          <div class="panel wide evidence-panel">
+            <div class="panel-header">
+              <h2>Real evidence runner</h2>
+              <span id="runnerState">Idle</span>
+            </div>
+            <div class="runner-actions">
+              <button class="command" data-run="/api/hash" type="button">Run certificate hash</button>
+              <button class="command" data-run="/api/run-tests" type="button">Run Daml scenarios</button>
+              <button class="command" data-run="/api/capture-evidence" type="button">Capture evidence</button>
+              <button class="command" id="latestEvidenceBtn" type="button">Open latest log</button>
+            </div>
+            <pre class="terminal" id="terminalOutput">Ready.</pre>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="./app.js"></script>
+  </body>
+</html>

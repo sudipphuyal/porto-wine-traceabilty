@@ -30,6 +30,22 @@ dpm script --ide-ledger --static-time --dar .daml/dist/porto-wine-traceability-0
 
 Expected successful output includes a completed DAR build and successful Daml Script execution for all three scripts.
 
+## Browser demo
+
+Start the local evaluation UI:
+
+```bash
+./scripts/run-demo-ui.sh
+```
+
+Then open:
+
+```text
+http://localhost:4173
+```
+
+The UI visualizes the batch lifecycle and can run the real hash, test and evidence scripts from the browser.
+
 ## Local Canton
 
 Start the local development template with:
